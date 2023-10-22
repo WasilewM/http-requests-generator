@@ -9,10 +9,13 @@ import argparse
 
 
 class RequestsGenerator:
-    def __init__(self, url: str, requests_number: int, timespan: int) -> None:
+    def __init__(self, url: str, requests_number: int, timespan: int,
+                 lower_limit: int = 0, upper_limit: int = 10**6) -> None:
         self._url = url
         self._requests_number = requests_number
         self._timespan = timespan
+        self._lower_limit = lower_limit
+        self._upper_limit = upper_limit
 
     def generate_requests_poisson_dist(self) -> np.ndarray:
         lambda_ = self._requests_number / self._timespan
@@ -21,7 +24,7 @@ class RequestsGenerator:
 
     def generate_random_requests_urls(self, requests_number: int) -> list:
         random_nums = [
-            randrange(10, 10*2)
+            randrange(self._lower_limit, self._upper_limit)
             for _ in range(requests_number)
         ]
         return [
@@ -63,6 +66,12 @@ def run(argv):
     parser.add_argument("timespan", type=int,
                         help='''Timespan during which the requests have
                         to be sent''')
+    parser.add_argument("-l", "--lower_limit", type=int,
+                        help='''Lower limit of integer values that will be
+                        randomly added to the URL''')
+    parser.add_argument("-u", "--upper_limit", type=int,
+                        help='''Lower limit of integer values that will be
+                        randomly added to the URL''')
     args = parser.parse_args()
     requests_generator = RequestsGenerator(
         args.url, args.requests_num, args.timespan
