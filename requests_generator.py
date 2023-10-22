@@ -5,13 +5,17 @@ import sys
 from random import randrange
 from scipy.stats import poisson
 import numpy as np
+import argparse
 
 
 class RequestsGenerator:
-    def __init__(self, url: str, requests_number: int, timespan: int) -> None:
+    def __init__(self, url: str, requests_number: int, timespan: int,
+                 lower_limit: int = 0, upper_limit: int = 10**6) -> None:
         self._url = url
         self._requests_number = requests_number
         self._timespan = timespan
+        self._lower_limit = lower_limit
+        self._upper_limit = upper_limit
 
     def generate_requests_poisson_dist(self) -> np.ndarray:
         lambda_ = self._requests_number / self._timespan
@@ -20,7 +24,7 @@ class RequestsGenerator:
 
     def generate_random_requests_urls(self, requests_number: int) -> list:
         random_nums = [
-            randrange(10, 10*2)
+            randrange(self._lower_limit, self._upper_limit)
             for _ in range(requests_number)
         ]
         return [
@@ -46,23 +50,34 @@ class RequestsGenerator:
                 concurrent.futures.wait(futures)
 
 
+def run(argv):
+    parser = argparse.ArgumentParser(
+        prog="http-requests-generator",
+        description='''Generates http requests for given URL
+         with random numbers appended at the end of the URL'''
+    )
+    parser.add_argument("url", type=str, help='''URL to your service.
+                        Remember that random integers will be added at the end
+                        of the URL request'''
+                        )
+    parser.add_argument("requests_num", type=int,
+                        help='''Average number of requests you want to send
+                        over the timespan''')
+    parser.add_argument("timespan", type=int,
+                        help='''Timespan during which the requests have
+                        to be sent''')
+    parser.add_argument("-l", "--lower_limit", type=int,
+                        help='''Lower limit of integer values that will be
+                        randomly added to the URL''')
+    parser.add_argument("-u", "--upper_limit", type=int,
+                        help='''Lower limit of integer values that will be
+                        randomly added to the URL''')
+    args = parser.parse_args()
+    requests_generator = RequestsGenerator(
+        args.url, args.requests_num, args.timespan
+    )
+    requests_generator.run()
+
+
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print("Usage: python3 requests_generator.py <number>")
-    else:
-        try:
-            print(f"Type of sys.argv[1]: {type(sys.argv[1])}")
-            print(f"Value of sys.argv[1]: {sys.argv[1]}")
-            request_url = sys.argv[1]
-            print(f"Type of sys.argv[2]: {type(sys.argv[2])}")
-            print(f"Value of sys.argv[2]: {sys.argv[2]}")
-            requests_number = int(sys.argv[2], 10)
-            print(f"Type of sys.argv[3]: {type(sys.argv[3])}")
-            print(f"Value of sys.argv[3]: {sys.argv[3]}")
-            timespan = int(sys.argv[3], 10)
-            requests_generator = RequestsGenerator(
-                request_url, requests_number, timespan
-            )
-            requests_generator.run()
-        except ValueError:
-            print("Invalid input. Please enter a valid number.")
+    run(sys.argv)
