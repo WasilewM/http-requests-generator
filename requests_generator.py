@@ -17,6 +17,12 @@ class RequestsGenerator:
         self._lower_limit = lower_limit
         self._upper_limit = upper_limit
 
+    def set_lower_limit(self, new_limit: int) -> None:
+        self._lower_limit = new_limit
+
+    def set_upper_limit(self, new_limit: int) -> None:
+        self._upper_limit = new_limit
+
     def generate_requests_poisson_dist(self) -> np.ndarray:
         lambda_ = self._requests_number / self._timespan
         poisson_dist = poisson(lambda_)
@@ -76,6 +82,12 @@ def run(argv):
     requests_generator = RequestsGenerator(
         args.url, args.requests_num, args.timespan
     )
+
+    if args.lower_limit is not None:
+        requests_generator.set_lower_limit(args.lower_limit)
+    if args.upper_limit is not None:
+        requests_generator.set_upper_limit(args.upper_limit)
+
     requests_generator.run()
 
 
