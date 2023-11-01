@@ -1,62 +1,116 @@
 import requests
-import concurrent.futures
+import asyncio
 import json
 import sys
+import numpy as np
+import argparse
 from random import randrange
 from scipy.stats import poisson
+from time import perf_counter
 
 
-URL = "http://localhost:8080/factorization_results"
-SECONDS_NUM = 10
+class RequestsGenerator:
+    def __init__(
+        self,
+        url: str,
+        requests_number: int,
+        timespan: int,
+        lower_limit: int = 0,
+        upper_limit: int = 10**6,
+    ) -> None:
+        self._url = url
+        self._requests_number = requests_number
+        self._timespan = timespan
+        self._lower_limit = lower_limit
+        self._upper_limit = upper_limit
 
+    def set_lower_limit(self, new_limit: int) -> None:
+        self._lower_limit = new_limit
 
-def generate_requests_by_poisson_dist(events_num, timespan):
-    lambda_ = events_num / timespan
-    poisson_dist = poisson(lambda_)
-    return poisson_dist.rvs(size=timespan)
+    def set_upper_limit(self, new_limit: int) -> None:
+        self._upper_limit = new_limit
 
+    def generate_requests_poisson_dist(self) -> np.ndarray:
+        lambda_ = self._requests_number / self._timespan
+        poisson_dist = poisson(lambda_)
+        return poisson_dist.rvs(size=self._timespan)
 
-def generate_requests_urls(requests_number):
-    random_nums = [
-        randrange(10, 10*2)
-        for _ in range(requests_number)
-    ]
-    return [
-        f'{URL}/{number}'
-        for number in random_nums
-    ]
+    def generate_random_requests_urls(self, requests_number: int) -> list:
+        random_nums = [
+            randrange(self._lower_limit, self._upper_limit)
+            for _ in range(requests_number)
+        ]
+        return [f"{self._url}/{number}" for number in random_nums]
 
+    async def send_request(self, url: str) -> None:
+        r = requests.get(url=url, params=dict())
+        r_json = json.loads(r.content)
+        print(r_json)
 
-def send_request(url):
-    r = requests.get(url=url, params=dict())
-    r_json = json.loads(r.content)
-    print(r_json)
-
-
-def run(requests_per_sec):
-    for rps in requests_per_sec:
-        urls_with_args = generate_requests_urls(rps)
-
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            futures = [
-                executor.submit(send_request, url)
-                for url in urls_with_args
-            ]
-            concurrent.futures.wait(futures)
-
-
-if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print("Usage: python3 svc_requests.py <number>")
-    else:
-        try:
-            print(f"Type of sys.argv[1]: {type(sys.argv[1])}")
-            print(f"Value of sys.argv[1]: {sys.argv[1]}")
-            number = int(sys.argv[1], 10)
-            requests_per_sec = generate_requests_by_poisson_dist(
-                number, SECONDS_NUM
+    async def run(self):
+        requests_per_sec = self.generate_requests_poisson_dist()
+        for rps in requests_per_sec:
+            urls_with_args = self.generate_random_requests_urls(rps)
+            before = perf_counter()
+            await asyncio.gather(
+                *(self.send_request(url) for url in urls_with_args)
             )
-            print(requests_per_sec)
-            run(requests_per_sec)
-        except ValueError:
-            print("Invalid input. Please enter a valid number.")
+            after = perf_counter()
+            print("time taken: ", after - before)
+            print("-" * 20)
+
+
+def run(argv):
+    parser = argparse.ArgumentParser(
+        prog="http-requests-generator",
+        description="""Generates http requests for given URL
+         with random numbers appended at the end of the URL""",
+    )
+    parser.add_argument(
+        "url",
+        type=str,
+        help="""URL to your service.
+                        Remember that random integers will be added at the end
+                        of the URL request""",
+    )
+    parser.add_argument(
+        "requests_num",
+        type=int,
+        help="""Average number of requests you want to send
+                        over the timespan""",
+    )
+    parser.add_argument(
+        "timespan",
+        type=int,
+        help="""Timespan during which the requests have
+                        to be sent""",
+    )
+    parser.add_argument(
+        "-l",
+        "--lower_limit",
+        type=int,
+        help="""Lower limit of integer values that will be
+                        randomly added to the URL""",
+    )
+    parser.add_argument(
+        "-u",
+        "--upper_limit",
+        type=int,
+        help="""Lower limit of integer values that will be
+                        randomly added to the URL""",
+    )
+    args = parser.parse_args()
+    requests_generator = RequestsGenerator(
+        args.url, args.requests_num, args.timespan
+    )
+
+    if args.lower_limit is not None:
+        requests_generator.set_lower_limit(args.lower_limit)
+    if args.upper_limit is not None:
+        requests_generator.set_upper_limit(args.upper_limit)
+
+    asyncio.run(requests_generator.run())
+
+
+if __name__ == "__main__":
+    run(sys.argv)
