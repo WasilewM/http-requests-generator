@@ -40,9 +40,15 @@ class RequestsGenerator:
         poisson_dist = poisson(lambda_)
         return poisson_dist.rvs(size=self._timespan)
 
-    def generate_random_requests_urls(self, requests_number: int) -> list:
-        random_nums = [randrange(self._lower_limit, self._upper_limit) for _ in range(requests_number)]
-        return [f"{self._url}/{number}" for number in random_nums]
+    def generate_random_requests_urls(self) -> list:
+        requests_per_sec = self.generate_requests_poisson_dist()
+        random_requests_urls = []
+        for rps in requests_per_sec:
+            random_nums = [randrange(self._lower_limit, self._upper_limit) for _ in range(rps)]
+            urls = [f"{self._url}/{number}" for number in random_nums]
+            yield urls
+            random_requests_urls.append(urls)
+        return random_requests_urls
 
     @staticmethod
     async def send_request(url: str) -> None:
@@ -51,9 +57,7 @@ class RequestsGenerator:
         print(r_json)
 
     async def run(self):
-        requests_per_sec = self.generate_requests_poisson_dist()
-        for rps in requests_per_sec:
-            urls_with_args = self.generate_random_requests_urls(rps)
+        for urls_with_args in self.generate_random_requests_urls():
             before = perf_counter()
             await asyncio.gather(*(self.send_request(url) for url in urls_with_args))
             after = perf_counter()
@@ -62,9 +66,12 @@ class RequestsGenerator:
 
 
 def select_mode(args):
-    if args.mode in GENERATE_AND_RUN_FLAGS:
-        requests_generator = RequestsGenerator(args.url, args.requests_num, args.timespan)
-
+    requests_generator = RequestsGenerator(args.url, args.requests_num, args.timespan)
+    if args.mode in GENERATE_FLAGS:
+        urls = requests_generator.generate_random_requests_urls()
+        for url in urls:
+            print(url)
+    elif args.mode in GENERATE_AND_RUN_FLAGS:
         if args.lower_limit is not None:
             requests_generator.set_lower_limit(args.lower_limit)
         if args.upper_limit is not None:
