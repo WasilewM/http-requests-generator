@@ -4,6 +4,7 @@ import json
 import sys
 import numpy as np
 import argparse
+import json
 from random import randrange
 from scipy.stats import poisson
 from time import perf_counter
@@ -65,21 +66,40 @@ class RequestsGenerator:
             print("-" * 20)
 
 
+def handle_generate_flag(requests_generator):
+    urls = requests_generator.generate_random_requests_urls()
+    for u in urls:
+        print(u)
+
+
+def handle_generate_and_save_flag(args, requests_generator):
+    if args.output is None:
+        print("Filepath is required in order to save the requests")
+        exit(1)
+    urls = [u for u in requests_generator.generate_random_requests_urls()]
+    urls_json = json.dumps(urls, indent=4)
+    with open(args.output, "w") as f:
+        f.write(urls_json)
+
+
+def handle_generate_and_run_flag(args, requests_generator):
+    if args.lower_limit is not None:
+        requests_generator.set_lower_limit(args.lower_limit)
+    if args.upper_limit is not None:
+        requests_generator.set_upper_limit(args.upper_limit)
+    asyncio.run(requests_generator.run())
+
+
 def select_mode(args):
     requests_generator = RequestsGenerator(args.url, args.requests_num, args.timespan)
     if args.mode in GENERATE_FLAGS:
-        urls = requests_generator.generate_random_requests_urls()
-        for url in urls:
-            print(url)
+        handle_generate_flag(requests_generator)
+    elif args.mode in GENERATE_AND_SAVE_FLAGS:
+        handle_generate_and_save_flag(args, requests_generator)
     elif args.mode in GENERATE_AND_RUN_FLAGS:
-        if args.lower_limit is not None:
-            requests_generator.set_lower_limit(args.lower_limit)
-        if args.upper_limit is not None:
-            requests_generator.set_upper_limit(args.upper_limit)
-
-        asyncio.run(requests_generator.run())
+        handle_generate_and_run_flag(args, requests_generator)
     else:
-        print("Implement me!")
+        print("Mode is not implemented")
         exit(1)
 
 
@@ -129,6 +149,12 @@ def run(argv):
         help="""Mode which should be executed""",
         choices=[*GENERATE_FLAGS, *GENERATE_AND_SAVE_FLAGS, *GENERATE_AND_RUN_FLAGS, *LOAD_AND_RUN_FLAGS],
         default="generate-and-run",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        help="""Path to file where requests will be saved""",
     )
     args = parser.parse_args()
     select_mode(args)
