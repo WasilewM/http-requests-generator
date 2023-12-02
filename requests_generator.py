@@ -8,6 +8,11 @@ from random import randrange
 from scipy.stats import poisson
 from time import perf_counter
 
+GENERATE_FLAGS = ["generate", "g"]
+GENERATE_AND_SAVE_FLAGS = ["generate-and-save", "gs"]
+GENERATE_AND_RUN_FLAGS = ["generate-and-run", "gr"]
+LOAD_AND_RUN_FLAGS = ["load-and-run", "lr"]
+
 
 class RequestsGenerator:
     def __init__(
@@ -36,10 +41,7 @@ class RequestsGenerator:
         return poisson_dist.rvs(size=self._timespan)
 
     def generate_random_requests_urls(self, requests_number: int) -> list:
-        random_nums = [
-            randrange(self._lower_limit, self._upper_limit)
-            for _ in range(requests_number)
-        ]
+        random_nums = [randrange(self._lower_limit, self._upper_limit) for _ in range(requests_number)]
         return [f"{self._url}/{number}" for number in random_nums]
 
     @staticmethod
@@ -53,12 +55,25 @@ class RequestsGenerator:
         for rps in requests_per_sec:
             urls_with_args = self.generate_random_requests_urls(rps)
             before = perf_counter()
-            await asyncio.gather(
-                *(self.send_request(url) for url in urls_with_args)
-            )
+            await asyncio.gather(*(self.send_request(url) for url in urls_with_args))
             after = perf_counter()
             print("time taken: ", after - before)
             print("-" * 20)
+
+
+def select_mode(args):
+    if args.mode in GENERATE_AND_RUN_FLAGS:
+        requests_generator = RequestsGenerator(args.url, args.requests_num, args.timespan)
+
+        if args.lower_limit is not None:
+            requests_generator.set_lower_limit(args.lower_limit)
+        if args.upper_limit is not None:
+            requests_generator.set_upper_limit(args.upper_limit)
+
+        asyncio.run(requests_generator.run())
+    else:
+        print("Implement me!")
+        exit(1)
 
 
 def run(argv):
@@ -100,17 +115,16 @@ def run(argv):
         help="""Lower limit of integer values that will be
                         randomly added to the URL""",
     )
-    args = parser.parse_args()
-    requests_generator = RequestsGenerator(
-        args.url, args.requests_num, args.timespan
+    parser.add_argument(
+        "-m",
+        "--mode",
+        type=str,
+        help="""Mode which should be executed""",
+        choices=[*GENERATE_FLAGS, *GENERATE_AND_SAVE_FLAGS, *GENERATE_AND_RUN_FLAGS, *LOAD_AND_RUN_FLAGS],
+        default="generate-and-run",
     )
-
-    if args.lower_limit is not None:
-        requests_generator.set_lower_limit(args.lower_limit)
-    if args.upper_limit is not None:
-        requests_generator.set_upper_limit(args.upper_limit)
-
-    asyncio.run(requests_generator.run())
+    args = parser.parse_args()
+    select_mode(args)
 
 
 if __name__ == "__main__":
