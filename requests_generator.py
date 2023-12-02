@@ -42,7 +42,8 @@ class RequestsGenerator:
         ]
         return [f"{self._url}/{number}" for number in random_nums]
 
-    async def send_request(self, url: str) -> None:
+    @staticmethod
+    async def send_request(url: str) -> None:
         r = requests.get(url=url, params=dict())
         r_json = json.loads(r.content)
         print(r_json)
