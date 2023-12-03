@@ -24,6 +24,7 @@ class RequestsGenerator:
         lower_limit: int = 0,
         upper_limit: int = 10**6,
     ) -> None:
+        self.requests = None
         self._url = url
         self._requests_number = requests_number
         self._timespan = timespan
@@ -51,28 +52,38 @@ class RequestsGenerator:
             random_requests_urls.append(urls)
         return random_requests_urls
 
+    def prepare_requests(self) -> None:
+        self.requests = self.generate_random_requests_urls()
+
     @staticmethod
     async def send_request(url: str) -> None:
         r = requests.get(url=url, params=dict())
         r_json = json.loads(r.content)
         print(r_json)
 
-    async def run(self):
-        for urls_with_args in self.generate_random_requests_urls():
+    async def run(self) -> None:
+        for urls in self.requests:
             before = perf_counter()
-            await asyncio.gather(*(self.send_request(url) for url in urls_with_args))
+            await asyncio.gather(*(self.send_request(u) for u in urls))
             after = perf_counter()
             print("time taken: ", after - before)
             print("-" * 20)
 
 
-def handle_generate_flag(requests_generator):
+def set_limits(args, requests_generator) -> None:
+    if args.lower_limit is not None:
+        requests_generator.set_lower_limit(args.lower_limit)
+    if args.upper_limit is not None:
+        requests_generator.set_upper_limit(args.upper_limit)
+
+
+def handle_generate_flag(requests_generator) -> None:
     urls = requests_generator.generate_random_requests_urls()
     for u in urls:
         print(u)
 
 
-def handle_generate_and_save_flag(args, requests_generator):
+def handle_generate_and_save_flag(args, requests_generator) -> None:
     if args.output is None:
         print("Filepath is required in order to save the requests")
         exit(1)
@@ -82,22 +93,33 @@ def handle_generate_and_save_flag(args, requests_generator):
         f.write(urls_json)
 
 
-def handle_generate_and_run_flag(args, requests_generator):
-    if args.lower_limit is not None:
-        requests_generator.set_lower_limit(args.lower_limit)
-    if args.upper_limit is not None:
-        requests_generator.set_upper_limit(args.upper_limit)
+def handle_generate_and_run_flag(args, requests_generator) -> None:
+    requests_generator.prepare_requests()
     asyncio.run(requests_generator.run())
 
 
-def select_mode(args):
+def handle_load_and_run_flag(args, requests_generator) -> None:
+    if args.input is None:
+        print("Filepath is required in order to load the requests")
+        exit(1)
+    with open(args.input, "r") as f:
+        data = f.read()
+        json_data = json.loads(data)
+        requests_generator.requests = json_data
+        asyncio.run(requests_generator.run())
+
+
+def select_mode(args) -> None:
     requests_generator = RequestsGenerator(args.url, args.requests_num, args.timespan)
+    set_limits(args, requests_generator)
     if args.mode in GENERATE_FLAGS:
         handle_generate_flag(requests_generator)
     elif args.mode in GENERATE_AND_SAVE_FLAGS:
         handle_generate_and_save_flag(args, requests_generator)
     elif args.mode in GENERATE_AND_RUN_FLAGS:
         handle_generate_and_run_flag(args, requests_generator)
+    elif args.mode in LOAD_AND_RUN_FLAGS:
+        handle_load_and_run_flag(args, requests_generator)
     else:
         print("Mode is not implemented")
         exit(1)
@@ -155,6 +177,12 @@ def run(argv):
         "--output",
         type=str,
         help="""Path to file where requests will be saved""",
+    )
+    parser.add_argument(
+        "-i",
+        "--input",
+        type=str,
+        help="""Path to file where requests are stored""",
     )
     args = parser.parse_args()
     select_mode(args)
