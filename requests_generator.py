@@ -24,30 +24,24 @@ class RequestsGenerator:
         lower_limit: int = 0,
         upper_limit: int = 10**6,
     ) -> None:
+        self.url = url
+        self.requests_number = requests_number
+        self.timespan = timespan
+        self.lower_limit = lower_limit
+        self.upper_limit = upper_limit
         self.requests = None
-        self._url = url
-        self._requests_number = requests_number
-        self._timespan = timespan
-        self._lower_limit = lower_limit
-        self._upper_limit = upper_limit
-
-    def set_lower_limit(self, new_limit: int) -> None:
-        self._lower_limit = new_limit
-
-    def set_upper_limit(self, new_limit: int) -> None:
-        self._upper_limit = new_limit
 
     def generate_requests_poisson_dist(self) -> np.ndarray:
-        lambda_ = self._requests_number / self._timespan
+        lambda_ = self.requests_number / self.timespan
         poisson_dist = poisson(lambda_)
-        return poisson_dist.rvs(size=self._timespan)
+        return poisson_dist.rvs(size=self.timespan)
 
     def generate_random_requests_urls(self) -> list:
         requests_per_sec = self.generate_requests_poisson_dist()
         random_requests_urls = []
         for rps in requests_per_sec:
-            random_nums = [randrange(self._lower_limit, self._upper_limit) for _ in range(rps)]
-            urls = [f"{self._url}/{number}" for number in random_nums]
+            random_nums = [randrange(self.lower_limit, self.upper_limit) for _ in range(rps)]
+            urls = [f"{self.url}/{number}" for number in random_nums]
             yield urls
             random_requests_urls.append(urls)
         return random_requests_urls
@@ -72,9 +66,9 @@ class RequestsGenerator:
 
 def set_limits(args, requests_generator) -> None:
     if args.lower_limit is not None:
-        requests_generator.set_lower_limit(args.lower_limit)
+        requests_generator.lower_limit = args.lower_limit
     if args.upper_limit is not None:
-        requests_generator.set_upper_limit(args.upper_limit)
+        requests_generator.upper_limit = args.upper_limit
 
 
 def handle_generate_flag(requests_generator) -> None:
