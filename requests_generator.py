@@ -1,10 +1,8 @@
 import requests
 import asyncio
 import json
-import sys
 import numpy as np
 import argparse
-import json
 from random import randrange
 from scipy.stats import poisson
 from time import perf_counter
@@ -64,20 +62,20 @@ class RequestsGenerator:
             print("-" * 20)
 
 
-def set_limits(args, requests_generator) -> None:
+def set_limits(args: argparse.Namespace, requests_generator: RequestsGenerator) -> None:
     if args.lower_limit is not None:
         requests_generator.lower_limit = args.lower_limit
     if args.upper_limit is not None:
         requests_generator.upper_limit = args.upper_limit
 
 
-def handle_generate_flag(requests_generator) -> None:
+def handle_generate_flag(requests_generator: RequestsGenerator) -> None:
     urls = requests_generator.generate_random_requests_urls()
     for u in urls:
         print(u)
 
 
-def handle_generate_and_save_flag(args, requests_generator) -> None:
+def handle_generate_and_save_flag(args: argparse.Namespace, requests_generator: RequestsGenerator) -> None:
     if args.output is None:
         print("Filepath is required in order to save the requests")
         exit(1)
@@ -87,12 +85,12 @@ def handle_generate_and_save_flag(args, requests_generator) -> None:
         f.write(urls_json)
 
 
-def handle_generate_and_run_flag(args, requests_generator) -> None:
+def handle_generate_and_run_flag(requests_generator: RequestsGenerator) -> None:
     requests_generator.prepare_requests()
     asyncio.run(requests_generator.run())
 
 
-def handle_load_and_run_flag(args, requests_generator) -> None:
+def handle_load_and_run_flag(args: argparse.Namespace, requests_generator: RequestsGenerator) -> None:
     if args.input is None:
         print("Filepath is required in order to load the requests")
         exit(1)
@@ -103,7 +101,7 @@ def handle_load_and_run_flag(args, requests_generator) -> None:
         asyncio.run(requests_generator.run())
 
 
-def select_mode(args) -> None:
+def select_mode(args: argparse.Namespace) -> None:
     requests_generator = RequestsGenerator(args.url, args.requests_num, args.timespan)
     set_limits(args, requests_generator)
     if args.mode in GENERATE_FLAGS:
@@ -111,7 +109,7 @@ def select_mode(args) -> None:
     elif args.mode in GENERATE_AND_SAVE_FLAGS:
         handle_generate_and_save_flag(args, requests_generator)
     elif args.mode in GENERATE_AND_RUN_FLAGS:
-        handle_generate_and_run_flag(args, requests_generator)
+        handle_generate_and_run_flag(requests_generator)
     elif args.mode in LOAD_AND_RUN_FLAGS:
         handle_load_and_run_flag(args, requests_generator)
     else:
@@ -119,7 +117,7 @@ def select_mode(args) -> None:
         exit(1)
 
 
-def run(argv):
+def run() -> None:
     parser = argparse.ArgumentParser(
         prog="http-requests-generator",
         description="""Generates http requests for given URL
@@ -183,4 +181,4 @@ def run(argv):
 
 
 if __name__ == "__main__":
-    run(sys.argv)
+    run()
