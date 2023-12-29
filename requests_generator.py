@@ -1,6 +1,7 @@
 import requests
 import asyncio
 import json
+import csv
 import numpy as np
 import argparse
 from random import randrange
@@ -28,6 +29,7 @@ class RequestsGenerator:
         self.lower_limit = lower_limit
         self.upper_limit = upper_limit
         self.requests = None
+        self.time_per_batch = []
 
     def generate_requests_poisson_dist(self) -> np.ndarray:
         lambda_ = self.requests_number / self.timespan
@@ -58,7 +60,9 @@ class RequestsGenerator:
             before = perf_counter()
             await asyncio.gather(*(self.send_request(u) for u in urls))
             after = perf_counter()
-            print("time taken: ", after - before)
+            time_taken = after - before
+            self.time_per_batch.append(time_taken)
+            print("time taken: ", time_taken)
             print("-" * 20)
 
 
@@ -101,6 +105,14 @@ def handle_load_and_run_flag(args: argparse.Namespace, requests_generator: Reque
         asyncio.run(requests_generator.run())
 
 
+def handle_time_statistics_export(args: argparse.Namespace, requests_generator: RequestsGenerator) -> None:
+    if args.csv_output:
+        iterable_time_statistics = [[x] for x in requests_generator.time_per_batch]
+        with open(args.csv_output, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerows(iterable_time_statistics)
+
+
 def select_mode(args: argparse.Namespace) -> None:
     requests_generator = RequestsGenerator(args.url, args.requests_num, args.timespan)
     set_limits(args, requests_generator)
@@ -110,8 +122,10 @@ def select_mode(args: argparse.Namespace) -> None:
         handle_generate_and_save_flag(args, requests_generator)
     elif args.mode in GENERATE_AND_RUN_FLAGS:
         handle_generate_and_run_flag(requests_generator)
+        handle_time_statistics_export(args, requests_generator)
     elif args.mode in LOAD_AND_RUN_FLAGS:
         handle_load_and_run_flag(args, requests_generator)
+        handle_time_statistics_export(args, requests_generator)
     else:
         print("Mode is not implemented")
         exit(1)
@@ -168,13 +182,18 @@ def run() -> None:
         "-o",
         "--output",
         type=str,
-        help="""Path to file where requests will be saved""",
+        help="""Path to the file where requests will be saved""",
     )
     parser.add_argument(
         "-i",
         "--input",
         type=str,
-        help="""Path to file where requests are stored""",
+        help="""Path to the file where requests are stored""",
+    )
+    parser.add_argument(
+        "--csv-output",
+        type=str,
+        help="""Path to the file where response time results will be saved""",
     )
     args = parser.parse_args()
     select_mode(args)
