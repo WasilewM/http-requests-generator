@@ -89,9 +89,17 @@ def handle_generate_and_save_flag(args: argparse.Namespace, requests_generator: 
         f.write(urls_json)
 
 
+def handle_requests_sending(requests_generator):
+    try:
+        asyncio.run(requests_generator.run())
+    except Exception as e:
+        print("Something went wrong during requests sending: following error occurred" + str(e))
+        print("Data collected so far:" + str(requests_generator.time_per_batch))
+
+
 def handle_generate_and_run_flag(requests_generator: RequestsGenerator) -> None:
     requests_generator.prepare_requests()
-    asyncio.run(requests_generator.run())
+    handle_requests_sending(requests_generator)
 
 
 def handle_load_and_run_flag(args: argparse.Namespace, requests_generator: RequestsGenerator) -> None:
@@ -102,7 +110,7 @@ def handle_load_and_run_flag(args: argparse.Namespace, requests_generator: Reque
         data = f.read()
         json_data = json.loads(data)
         requests_generator.requests = json_data
-        asyncio.run(requests_generator.run())
+        handle_requests_sending(requests_generator)
 
 
 def handle_time_statistics_export(args: argparse.Namespace, requests_generator: RequestsGenerator) -> None:
